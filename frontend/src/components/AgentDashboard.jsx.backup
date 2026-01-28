@@ -1,0 +1,471 @@
+import React, { useState, useEffect } from 'react';
+import { fetchWorkQueue, logInteraction, processPayment, searchDebts } from '../services/api';
+import { Phone, Mail, CreditCard, AlertTriangle, CheckCircle, XCircle, Clock, Calendar, FileText, DollarSign, User, Shield, Briefcase, Activity, ChevronDown, Search } from 'lucide-react';
+
+const AgentDashboard = () => {
+    const [currentDebt, setCurrentDebt] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [statusMsg, setStatusMsg] = useState(null);
+    const [activeTab, setActiveTab] = useState('general'); // general, financial, compliance
+
+    // Compliance & Action State
+    const [isTimezoneValid, setTimezoneValid] = useState(true);
+    const [is7in7Warning, set7in7Warning] = useState(false);
+    const [actionInProgress, setActionInProgress] = useState(null);
+
+    // Search State
+    const [searchType, setSearchType] = useState('name'); // 'name' or 'client_ref'
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState(null);
+
+    useEffect(() => {
+        loadNextDebt();
+    }, []);
+
+    const loadNextDebt = async () => {
+        try {
+            setLoading(true);
+            const queue = await fetchWorkQueue();
+            if (queue && queue.length > 0) {
+                const debt = queue[0];
+                setCurrentDebt({
+                    id: debt.id,
+                    debtorName: `${debt.debtor.first_name} ${debt.debtor.last_name}`,
+                    email: debt.debtor.email,
+                    phone: debt.debtor.phone,
+                    dob: debt.debtor.dob || 'N/A',
+                    address: `${debt.debtor.address_1} ${debt.debtor.address_2 || ''}`,
+                    cityStateZip: `${debt.debtor.city}, ${debt.debtor.state} ${debt.debtor.zip_code}`,
+                    zipCode: debt.debtor.zip_code,
+                    account: debt.original_account_number,
+                    clientRef: debt.client_reference_number || 'N/A',
+                    creditor: debt.original_creditor || 'Unknown Creditor',
+                    opened: debt.date_opened || 'N/A',
+                    chargeOff: debt.charge_off_date || 'N/A',
+                    amountDue: debt.amount_due,
+                    principal: debt.principal_balance,
+                    fees: debt.fees_costs,
+                    lastPayDate: debt.last_payment_date || 'Never',
+                    lastPayAmount: debt.last_payment_amount,
+                    status: debt.status,
+                    ssnHash: debt.debtor.ssn_hash ? `***-**-${debt.debtor.ssn_hash.substring(0, 4)}` : 'N/A'
+                });
+            } else {
+                setCurrentDebt(null);
+            }
+        } catch (e) {
+            console.error(e);
+            setStatusMsg({ type: 'error', text: "Failed to load work queue" });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCall = async () => {
+        if (!isTimezoneValid) return;
+        setActionInProgress('call');
+        try {
+            const result = await logInteraction(currentDebt.id, "Call", "Agent initiated call");
+            let msg = "Call Logged";
+            if (result.warning_flag === "WARNING") {
+                set7in7Warning(true);
+                msg += " (7-in-7 Warning)";
+            }
+            setStatusMsg({ type: 'success', text: msg });
+        } catch (e) {
+            setStatusMsg({ type: 'error', text: e.message });
+            if (e.message.includes("Do Not Call")) setTimezoneValid(false);
+        } finally {
+            setActionInProgress(null);
+        }
+    };
+
+    const handlePayment = async () => {
+        setActionInProgress('pay');
+        try {
+            const result = await processPayment(currentDebt.id, currentDebt.amountDue);
+            setStatusMsg({ type: 'success', text: `Paid $${result.amount_paid}` });
+        } catch (e) {
+            setStatusMsg({ type: 'error', text: "Payment Failed" });
+        } finally {
+            setActionInProgress(null);
+        }
+    };
+
+    const handleSearch = async (query) => {
+        if (!query || query.trim().length < 2) {
+            setSearchResults(null);
+            return;
+        }
+        try {
+            const results = await searchDebts(searchType, query);
+            if (results && results.length > 0) {
+                setSearchResults(results);
+                setStatusMsg({ type: 'success', text: `Found ${results.length} result(s)` });
+            } else {
+                setSearchResults(null);
+                setStatusMsg({ type: 'info', text: 'No results found' });
+            }
+        } catch (e) {
+            setSearchResults(null);
+            setStatusMsg({ type: 'error', text: 'Search failed' });
+        }
+    };
+
+    if (loading) return <div className="flex justify-center items-center h-screen text-blue-400 font-mono">LOADING DATA STREAM...</div>;
+
+    return (
+        <div className="min-h-screen bg-[#0f1115] text-gray-300 font-sans p-2">
+
+            {/* SEARCH BAR */}
+            <div className="glass-panel p-3 rounded-xl mb-2 flex items-center gap-2">
+                <Search size={18} className="text-gray-500" />
+                <select
+                    value={searchType}
+                    onChange={(e) => setSearchType(e.target.value)}
+                    className="bg-black/20 border border-white/10 rounded px-3 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500/50"
+                >
+                    <option value="name">Name</option>
+                    <option value="client_ref">Client Ref</option>
+                </select>
+                <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        handleSearch(e.target.value);
+                    }}
+                    placeholder={searchType === 'name' ? 'Type to search by name...' : 'Type to search by client ref...'}
+                    className="flex-1 bg-black/20 border border-white/10 rounded px-4 py-2 text-sm text-gray-300 focus:outline-none focus:border-blue-500/50"
+                />
+            </div>
+
+            {/* SEARCH RESULTS DROPDOWN */}
+            {searchResults && searchResults.length > 0 && (
+                <div className="glass-panel p-3 rounded-xl mb-2">
+                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+                        {searchResults.length} Results Found - Click to Load
+                    </div>
+                    <div className="space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                        {searchResults.map((result, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => {
+                                    const debt = result;
+                                    setCurrentDebt({
+                                        id: debt.id,
+                                        debtorName: `${debt.debtor.first_name} ${debt.debtor.last_name}`,
+                                        email: debt.debtor.email,
+                                        phone: debt.debtor.phone,
+                                        dob: debt.debtor.dob || 'N/A',
+                                        address: `${debt.debtor.address_1} ${debt.debtor.address_2 || ''}`,
+                                        cityStateZip: `${debt.debtor.city}, ${debt.debtor.state} ${debt.debtor.zip_code}`,
+                                        zipCode: debt.debtor.zip_code,
+                                        account: debt.original_account_number,
+                                        clientRef: debt.client_reference_number || 'N/A',
+                                        creditor: debt.original_creditor || 'Unknown Creditor',
+                                        opened: debt.date_opened || 'N/A',
+                                        chargeOff: debt.charge_off_date || 'N/A',
+                                        amountDue: debt.amount_due,
+                                        principal: debt.principal_balance,
+                                        fees: debt.fees_costs,
+                                        lastPayDate: debt.last_payment_date || 'Never',
+                                        lastPayAmount: debt.last_payment_amount,
+                                        status: debt.status,
+                                        ssnHash: debt.debtor.ssn_hash ? `***-**-${debt.debtor.ssn_hash.substring(0, 4)}` : 'N/A'
+                                    });
+                                    setSearchResults(null); // Close dropdown after selection
+                                }}
+                                className="w-full text-left p-3 bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-all flex justify-between items-center group"
+                            >
+                                <div className="flex-1">
+                                    <div className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">
+                                        {result.debtor.first_name} {result.debtor.last_name}
+                                    </div>
+                                    <div className="text-xs text-gray-500 font-mono mt-0.5">
+                                        Ref: {result.client_reference_number || 'N/A'}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-bold text-red-400 font-mono">
+                                        ${Number(result.amount_due || 0).toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {result.status}
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        onClick={() => setSearchResults(null)}
+                        className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                        Close Results
+                    </button>
+                </div>
+            )}
+
+            {/* TOP HEADER BAR */}
+            {!currentDebt && (
+                <div className="p-20 text-center">
+                    <Search size={48} className="mx-auto text-gray-700 mb-4" />
+                    <div className="text-gray-500 font-mono text-lg">Search for an account to begin</div>
+                    <div className="text-gray-600 text-sm mt-2">Type a name or client reference above</div>
+                </div>
+            )}
+            {currentDebt && (
+                <div className="glass-panel border-b border-white/5 p-4 rounded-xl mb-2 flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                            {currentDebt.debtorName.charAt(0)}
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-white leading-tight flex items-center gap-2">
+                                {currentDebt.debtorName}
+                                <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30 uppercase tracking-wider">Primary</span>
+                            </h1>
+                            <div className="text-xs text-gray-500 font-mono flex gap-3 mt-0.5">
+                                <span>ID: {currentDebt.id}</span>
+                                <span>•</span>
+                                <span>SSN: {currentDebt.ssnHash}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-6 text-right">
+                        <div className="text-xs">
+                            <div className="text-gray-500 uppercase tracking-widest text-[10px]">Total Owed</div>
+                            <div className="text-2xl font-bold text-red-400 font-mono">${currentDebt.amountDue.toLocaleString()}</div>
+                        </div>
+                        <div className="text-xs">
+                            <div className="text-gray-500 uppercase tracking-widest text-[10px]">Local Time</div>
+                            <div className={`text-lg font-bold font-mono flex items-center gap-1 ${!isTimezoneValid ? 'text-red-500' : 'text-green-500'}`}>
+                                {!isTimezoneValid ? <XCircle size={14} /> : <Clock size={14} />}
+                                04:32 PM (EST)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div >
+
+    {/* MAIN 3-COLUMN GRID */ }
+    < div className = "grid grid-cols-12 gap-2 h-[calc(100vh-140px)]" >
+
+        {/* COL 1: LEFT SIDEBAR (Contact & Quick Profile) - 3 Columns width */ }
+        < div className = "col-span-3 flex flex-col gap-2" >
+            {/* Contact Card */ }
+            < div className = "glass-panel p-4 rounded-xl flex-1 flex flex-col gap-4" >
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <User size={12} /> Contact Details
+                        </h3>
+
+                        <div className="space-y-4">
+                            <div className="group p-2 rounded hover:bg-white/5 border border-transparent hover:border-white/5 transition-colors">
+                                <label className="text-[10px] text-gray-500 uppercase">Primary Phone</label>
+                                <div className="flex justify-between items-center">
+                                    <div className="font-mono text-white text-sm">{currentDebt.phone}</div>
+                                    <button onClick={handleCall} disabled={!isTimezoneValid} className="p-1.5 bg-green-500/20 text-green-400 rounded hover:bg-green-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <Phone size={14} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="group p-2 rounded hover:bg-white/5 border border-transparent hover:border-white/5 transition-colors">
+                                <label className="text-[10px] text-gray-500 uppercase">Email Address</label>
+                                <div className="flex justify-between items-center">
+                                    <div className="font-mono text-white text-sm truncate w-32">{currentDebt.email}</div>
+                                    <button className="p-1.5 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-all">
+                                        <Mail size={14} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="group p-2 rounded hover:bg-white/5 border border-transparent hover:border-white/5 transition-colors">
+                                <label className="text-[10px] text-gray-500 uppercase">Mailing Address</label>
+                                <div className="text-sm text-gray-300 mt-0.5">
+                                    {currentDebt.address}<br />
+                                    {currentDebt.cityStateZip}
+                                </div>
+                            </div>
+                        </div>
+
+{/* Compliance Flags */ }
+<div className="mt-auto border-t border-white/10 pt-4">
+    {is7in7Warning && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 p-2 rounded text-xs text-yellow-200 flex items-center gap-2 mb-2">
+            <AlertTriangle size={12} /> Exceeds 7-in-7 Limit
+        </div>
+    )}
+    {!isTimezoneValid ? (
+        <div className="bg-red-500/10 border border-red-500/20 p-2 rounded text-xs text-red-200 flex items-center gap-2">
+            <XCircle size={12} /> Outside Calling Hours
+        </div>
+    ) : (
+        <div className="bg-green-500/10 border border-green-500/20 p-2 rounded text-xs text-green-200 flex items-center gap-2">
+            <CheckCircle size={12} /> Compliant to Call
+        </div>
+    )}
+</div>
+                    </div >
+                </div >
+
+    {/* COL 2: CENTER (Detailed Info Tabs) - 6 Columns width */ }
+    < div className = "col-span-6 flex flex-col gap-2" >
+        <div className="glass-panel rounded-xl flex-1 flex flex-col overflow-hidden">
+            {/* Tabs Header */}
+            <div className="flex border-b border-white/10 bg-black/20">
+                {['general', 'financial', 'compliance'].map(tab => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all ${activeTab === tab
+                            ? 'text-white border-b-2 border-blue-500 bg-white/5'
+                            : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                            }`}
+                    >
+                        {tab} Details
+                    </button>
+                ))}
+            </div>
+
+            {/* Tabs Content */}
+            <div className="p-4 overflow-y-auto custom-scrollbar">
+                {activeTab === 'general' && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-4">
+                            <div><label className="text-[10px] text-gray-500 uppercase">Account Number</label><div className="text-sm text-white font-mono">{currentDebt.account}</div></div>
+                            <div><label className="text-[10px] text-gray-500 uppercase">Client Ref</label><div className="text-sm text-white font-mono">{currentDebt.clientRef}</div></div>
+                            <div><label className="text-[10px] text-gray-500 uppercase">Creditor</label><div className="text-sm text-white font-medium">{currentDebt.creditor}</div></div>
+                        </div>
+                        <div className="space-y-4">
+                            <div><label className="text-[10px] text-gray-500 uppercase">Date Opened</label><div className="text-sm text-white font-mono">{currentDebt.opened}</div></div>
+                            <div><label className="text-[10px] text-gray-500 uppercase">Charge-off Date</label><div className="text-sm text-white font-mono">{currentDebt.chargeOff}</div></div>
+                            <div><label className="text-[10px] text-gray-500 uppercase">Status</label><div className="text-sm text-white"><span className="bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded text-xs border border-blue-500/30">{currentDebt.status}</span></div></div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'financial' && (
+                    <div>
+                        <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="bg-black/20 p-3 rounded border border-white/5">
+                                <div className="text-[10px] text-gray-500 uppercase">Principal</div>
+                                <div className="text-lg text-white font-mono">${Number(currentDebt.principal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                            </div>
+                            <div className="bg-black/20 p-3 rounded border border-white/5">
+                                <div className="text-[10px] text-gray-500 uppercase">Fees/Costs</div>
+                                <div className="text-lg text-white font-mono">${Number(currentDebt.fees || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
+                            </div>
+                            <div className="bg-black/20 p-3 rounded border border-white/5">
+                                <div className="text-[10px] text-gray-500 uppercase">Interest</div>
+                                <div className="text-lg text-white font-mono">$0.00</div>
+                            </div>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Payment History</h4>
+                        <table className="w-full text-xs text-left text-gray-400">
+                            <thead className="bg-white/5 text-gray-300">
+                                <tr>
+                                    <th className="p-2 rounded-tl">Date</th>
+                                    <th className="p-2">Amount</th>
+                                    <th className="p-2">Method</th>
+                                    <th className="p-2 rounded-tr">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr className="border-b border-white/5">
+                                    <td className="p-2 font-mono">{currentDebt.lastPayDate}</td>
+                                    <td className="p-2 font-mono">${Number(currentDebt.lastPayAmount || 0).toFixed(2)}</td>
+                                    <td className="p-2">Credit Card</td>
+                                    <td className="p-2 text-green-400">Processed</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {activeTab === 'compliance' && (
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/5">
+                            <span className="text-sm">Mini-Miranda Read?</span>
+                            <span className="text-xs bg-red-500/20 text-red-300 px-2 py-0.5 rounded border border-red-500/30">NO</span>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/5">
+                            <span className="text-sm">Right to Dispute?</span>
+                            <span className="text-xs bg-gray-500/20 text-gray-300 px-2 py-0.5 rounded border border-gray-500/30">PENDING</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+
+{/* Timeline Feed */ }
+<div className="glass-panel p-4 rounded-xl h-48 overflow-y-auto">
+    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 sticky top-0 bg-[#161a1f] py-1 z-10 flex justify-between">
+        <span>Activity Timeline</span>
+        <span className="text-[10px] bg-white/10 px-1 rounded cursor-pointer">View All</span>
+    </h3>
+    {statusMsg && (
+        <div className="text-xs p-2 mb-2 rounded bg-white/5 border border-white/10 flex items-center gap-2">
+            <span className={statusMsg.type === 'success' ? 'text-green-400' : 'text-red-400'}>●</span>
+            {statusMsg.text}
+        </div>
+    )}
+    <div className="space-y-3 border-l border-white/10 ml-1 pl-3">
+        <div className="relative">
+            <span className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]"></span>
+            <div className="text-xs text-gray-400 font-mono">Today, 09:30 AM</div>
+            <div className="text-xs text-white mt-0.5">System: Account loaded into work queue.</div>
+        </div>
+        <div className="relative">
+            <span className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-gray-600"></span>
+            <div className="text-xs text-gray-400 font-mono">Yesterday, 04:15 PM</div>
+            <div className="text-xs text-white mt-0.5">Import: Data enriched from client file.</div>
+        </div>
+    </div>
+</div>
+                </div >
+
+    {/* COL 3: ACTIONS & NOTES - 3 Columns width */ }
+    < div className = "col-span-3 flex flex-col gap-2" >
+                    <div className="glass-panel p-4 rounded-xl">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Quick Actions</h3>
+
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                            <button className="flex flex-col items-center justify-center p-3 bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-all group">
+                                <Mail size={16} className="text-blue-400 mb-1 group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] uppercase font-bold text-gray-400">Email</span>
+                            </button>
+                            <button className="flex flex-col items-center justify-center p-3 bg-white/5 hover:bg-white/10 rounded border border-white/5 transition-all group">
+                                <Shield size={16} className="text-purple-400 mb-1 group-hover:scale-110 transition-transform" />
+                                <span className="text-[10px] uppercase font-bold text-gray-400">Dispute</span>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={handlePayment}
+                            disabled={actionInProgress}
+                            className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                        >
+                            <CreditCard size={16} />
+                            <span>Quick Pay Full</span>
+                        </button>
+                    </div>
+
+                    <div className="glass-panel p-4 rounded-xl flex-1 flex flex-col">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Agent Notes</h3>
+                        <textarea
+                            className="bg-black/20 border border-white/10 rounded p-3 h-full w-full text-xs text-gray-300 focus:outline-none focus:border-blue-500/50 resize-none"
+                            placeholder="Type session notes here..."
+                        ></textarea>
+                    </div>
+                </div >
+            </div >
+            )}
+        </div >
+    );
+};
+
+export default AgentDashboard;
