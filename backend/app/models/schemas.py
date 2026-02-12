@@ -8,7 +8,7 @@ from decimal import Decimal
 class DebtorBase(BaseModel):
     first_name: str
     last_name: str
-    dob: Optional[str] = None # Date as string for JSON
+    dob: Optional[str] = None 
     address_1: Optional[str] = None
     address_2: Optional[str] = None
     city: Optional[str] = None
@@ -22,6 +22,7 @@ class DebtBase(BaseModel):
     client_reference_number: Optional[str] = None
     original_account_number: str
     original_creditor: Optional[str] = None
+    current_creditor: Optional[str] = None
     date_opened: Optional[str] = None
     charge_off_date: Optional[str] = None
     principal_balance: Optional[Decimal] = None
@@ -37,6 +38,17 @@ class InteractionCreate(BaseModel):
     action_type: str # 'Call', 'Email', 'SMS'
     notes: Optional[str] = None
 
+class EmailTemplateSend(BaseModel):
+    debt_id: int
+    template_id: str
+
+class DebtorEmailUpdate(BaseModel):
+    email: str
+
+class ValidationNoticeSend(BaseModel):
+    debt_id: int
+    pdf_url: str
+
 class PaymentCreate(BaseModel):
     debt_id: int
     amount_paid: Decimal
@@ -49,11 +61,9 @@ class PaymentPlanCreate(BaseModel):
     installment_count: int
     frequency: str # 'weekly', 'bi-weekly', 'monthly'
     start_date: datetime
-    
-    # Card Info (Tokenization Input)
-    card_number: str
-    card_expiry: str # MMYY
-    card_cvv: str
+
+    # Payment Key (Pay.js token)
+    payment_key: str
     cardholder_name: str
     
     # Billing Address
@@ -90,6 +100,12 @@ class ScheduledPaymentResponse(BaseModel):
     processed_at: Optional[datetime] = None
     transaction_reference: Optional[str] = None
     payment_method: Optional[str] = None
+    attempt_count: Optional[int] = None
+    next_attempt_at: Optional[datetime] = None
+    last_result_code: Optional[str] = None
+    last_result: Optional[str] = None
+    last_decline_reason: Optional[str] = None
+    last_error: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -120,3 +136,7 @@ class PaymentResponse(BaseModel):
     transaction_reference: Optional[str] = None
     scheduled_payment_id: Optional[int] = None
     payment_method: Optional[str] = None
+    status: Optional[str] = None
+    result_code: Optional[str] = None
+    result: Optional[str] = None
+    error_message: Optional[str] = None

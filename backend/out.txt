@@ -1,0 +1,8 @@
+RealDictRow([('id', 6), ('debt_id', 5), ('email_to', 'dominic@eliteportfoliomgt.com'), ('status', 'sent'), ('sendgrid_message_id', 'aseLHPg-R6mkMzT27q3m9g'), ('error_message', None), ('template_id', 'd-af354e38605d46e093e9a5c531d8e13f')])
+RealDictRow([('id', 5), ('debt_id', 5), ('email_to', 'dominic@eliteportfoliomgt.com'), ('status', 'opened'), ('sendgrid_message_id', '950tWf6aSouyp290CGLmxg'), ('error_message', None), ('template_id', 'd-2292ad4d40954a3a878f9389f638ceb1')])
+RealDictRow([('id', 4), ('debt_id', 5), ('email_to', 'dominic@eliteportfoliomgt.com'), ('status', 'opened'), ('sendgrid_message_id', 'lttNcfK4SBCK46nMqNuUNg'), ('error_message', None), ('template_id', 'd-2292ad4d40954a3a878f9389f638ceb1')])
+RealDictRow([('id', 3), ('debt_id', 5), ('email_to', 'dominic@eliteportfoliomgt.com'), ('status', 'opened'), ('sendgrid_message_id', 'N5i_LAHeQAOVSL3bd6WIcw'), ('error_message', None), ('template_id', 'd-2292ad4d40954a3a878f9389f638ceb1')])
+RealDictRow([('id', 2), ('debt_id', 3504), ('email_to', 'dominic@eliteportfoliomgt.com'), ('status', 'clicked'), ('sendgrid_message_id', 'fDT0zKtYRW2MUg8WCFJMHw'), ('error_message', None), ('template_id', None)])
+RealDictRow([('id', 'b28495c4-acaa-4584-a824-151feea44825'), ('email', 'jane@example.com'), ('first_name', 'Jane'), ('last_name', 'Doe')])
+RealDictRow([('id', '9f7eed69-f0bc-4c39-9a32-9b278e23df76'), ('email', 'skkendrick1996@yahoo.com'), ('first_name', 'SARA'), ('last_name', 'KENDRICK')])
+RealDictRow([('id', '11eb80f9-78d7-4c33-a89d-e9a2629ddd72'), ('email', 'williams126005@gmail.com'), ('first_name', 'WILLIAM'), ('last_name', 'SMITH')])

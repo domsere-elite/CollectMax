@@ -1,0 +1,9 @@
+--- ALL EMAIL TEMPLATES ---
+ID: 1 | Name: Agent Email Template | SG_ID: d-2292ad4d40954a3a878f9389f638ceb1
+  Desc: Primary agent email template
+------------------------------
+ID: 2 | Name: Validation Notice | SG_ID: d-af354e38605d46e093e9a5c531d8e13f
+  Desc: FDCPA Validation Notice
+------------------------------
+
+DONE

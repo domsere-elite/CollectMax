@@ -25,7 +25,12 @@ def check_calling_hours(zip_code: str):
         # Assuming safe default: Block if unknown, or default to checking server time if that was the rule (it's not).
         # We will allow it for now but flag it, or simplistic stub returns True.
         # Let's be strict:
-        return True # Stub behavior: Allow unknown zips for demo, or raise Error? 
+        # Default to strict compliance: If ZIP is unknown, we cannot determine time, so we must BLOCK.
+        # Unless override is enabled.
+        import os
+        if os.getenv("COMPLIANCE_ALLOW_UNKNOWN_ZIP", "false").lower() == "true":
+            return True
+        raise ComplianceError(f"Compliance Block: Unknown timezone for ZIP {zip_code}. Cannot verify calling hours.") 
         # Re-reading prompt: "Timezone Check: ... If outside 8AM-9PM local, raise ComplianceError."
         # If I don't know the TZ, I can't know the time. I'll default to failing safe (ComplianceError) or just passing for this stub.
         # I'll just pass for unknown zips to avoid breaking everything, but implement the logic for known ones.
@@ -41,20 +46,6 @@ def check_calling_hours(zip_code: str):
             raise ComplianceError(f"Do Not Call: Current time {now} in {tz_name} is outside 8AM-9PM window.")
     
     return True
-
-def check_7_in_7(debtor_id: str, interaction_logs: list):
-    """
-    Checks if there have been more than 7 calls in the last 7 days.
-    Returns: 'OK' or 'WARNING'
-    """
-    # In a real DB scenario, we'd query the DB count. 
-    # Here we accept the list of logs for the logic demonstration.
-    
-    # Filter logs for 'Call' type and within last 7 days
-    # This logic would usually happen at the Query level, but here is the Python logic:
-    if len(interaction_logs) >= 7:
-        return "WARNING"
-    return "OK"
 
 @router.get("/check-call-window/{zip_code}")
 def api_check_call_window(zip_code: str):

@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, time
 import pytz
-from app.core.compliance import check_calling_hours, check_7_in_7, ComplianceError, ZIP_TIMEZONE_MAP
+from app.core.compliance import check_calling_hours, ComplianceError, ZIP_TIMEZONE_MAP
 
 # Mock Time Helper
 class MockDatetime:
@@ -26,13 +26,3 @@ def test_check_calling_hours_invalid_zip_logic():
     # 8AM EST = 5AM PST -> Should Fail for 90210
     pass
 
-def test_check_7_in_7_ok():
-    logs = ["Call", "Call", "Call"] # 3 calls
-    assert check_7_in_7("debtor1", logs) == "OK"
-
-def test_check_7_in_7_warning():
-    logs = ["Call"] * 7 # 7 calls
-    assert check_7_in_7("debtor1", logs) == "WARNING"
-    
-    logs = ["Call"] * 8 # 8 calls
-    assert check_7_in_7("debtor1", logs) == "WARNING"

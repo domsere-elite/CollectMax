@@ -1,0 +1,20 @@
+ALTER TABLE payments
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'paid',
+    ADD COLUMN IF NOT EXISTS result_code VARCHAR(10),
+    ADD COLUMN IF NOT EXISTS result VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS decline_reason VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS error_message TEXT;
+
+ALTER TABLE scheduled_payments
+    ADD COLUMN IF NOT EXISTS attempt_count INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMP WITH TIME ZONE,
+    ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP WITH TIME ZONE,
+    ADD COLUMN IF NOT EXISTS last_gateway_trankey VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS last_result_code VARCHAR(10),
+    ADD COLUMN IF NOT EXISTS last_result VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS last_decline_reason VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS last_error TEXT;
+
+UPDATE payments
+SET status = 'paid'
+WHERE status IS NULL;

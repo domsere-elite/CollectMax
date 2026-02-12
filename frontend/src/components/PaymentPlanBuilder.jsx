@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, DollarSign, Clock, CheckCircle, AlertCircle, ChevronRight, CreditCard } from 'lucide-react';
 
 const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
@@ -19,10 +19,12 @@ const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
     }, [isSettlement, totalDue]);
 
     // Card Info State
-    const [cardNumber, setCardNumber] = useState('');
-    const [expiry, setExpiry] = useState('');
-    const [cvv, setCvv] = useState('');
     const [cardholderName, setCardholderName] = useState(debtor ? `${debtor.first_name} ${debtor.last_name}` : '');
+    const paymentCardContainerRef = useRef(null);
+    const paymentCardRef = useRef(null);
+    const payClientRef = useRef(null);
+    const [payjsReady, setPayjsReady] = useState(false);
+    const [payjsError, setPayjsError] = useState(null);
 
     // Billing Address State - Auto-populate from debtor
     const [billingAddress, setBillingAddress] = useState(debtor?.address_1 || '');
@@ -38,13 +40,39 @@ const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
             setBillingCity(debtor.city || '');
             setBillingState(debtor.state || '');
             setBillingZip(debtor.zip_code || '');
-            // Clear sensitive fields for new account
-            setCardNumber('');
-            setExpiry('');
-            setCvv('');
             setError(null);
         }
     }, [debtor]);
+
+    const publicKey = import.meta.env.VITE_USAEPAY_PUBLIC_KEY || '';
+
+    useEffect(() => {
+        if (!publicKey) {
+            setPayjsError('Missing USAePay public key.');
+            return;
+        }
+
+        if (!window.usaepay) {
+            setPayjsError('USAePay Pay.js failed to load.');
+            return;
+        }
+
+        if (!paymentCardContainerRef.current || paymentCardRef.current) {
+            return;
+        }
+
+        const client = new window.usaepay.Client(publicKey);
+        const paymentCard = client.createPaymentCardEntry();
+        paymentCard.addEventListener('error', (errorMessage) => {
+            setPayjsError(errorMessage);
+        });
+        paymentCard.generateHTML({});
+        paymentCard.addHTML('paymentCardContainer');
+
+        payClientRef.current = client;
+        paymentCardRef.current = paymentCard;
+        setPayjsReady(true);
+    }, []);
 
     const [preview, setPreview] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -100,7 +128,27 @@ const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
     const handleSavePlan = async () => {
         setSaving(true);
         setError(null);
+        setPayjsError(null);
         try {
+            const client = payClientRef.current;
+            const paymentCard = paymentCardRef.current;
+            if (!client || !paymentCard) {
+                throw new Error('Payment entry not ready.');
+            }
+
+            const tokenResult = await client.getPaymentKey(paymentCard);
+            if (tokenResult?.error) {
+                throw new Error(tokenResult.error.message || 'Payment tokenization failed.');
+            }
+
+            const paymentKey = typeof tokenResult === 'string'
+                ? tokenResult
+                : tokenResult?.payment_key || tokenResult?.key || tokenResult;
+
+            if (!paymentKey || typeof paymentKey !== 'string') {
+                throw new Error('Payment tokenization failed.');
+            }
+
             const response = await fetch('http://localhost:8000/api/v1/payment-plans', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -112,9 +160,7 @@ const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
                     frequency: frequency,
                     start_date: startDate,
                     is_settlement: isSettlement,
-                    card_number: cardNumber,
-                    card_expiry: expiry,
-                    card_cvv: cvv,
+                    payment_key: paymentKey,
                     cardholder_name: cardholderName,
                     billing_address: billingAddress,
                     billing_city: billingCity,
@@ -329,41 +375,21 @@ const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Card Number</label>
-                                    <div className="relative">
-                                        <CreditCard size={14} className="absolute left-3 top-2.5 text-slate-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="XXXX XXXX XXXX XXXX"
-                                            value={cardNumber}
-                                            onChange={(e) => setCardNumber(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 rounded px-8 py-2 text-sm text-slate-900 focus:outline-none focus:border-blue-500/50 font-mono"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] text-slate-500 uppercase font-bold">Expiry (MMYY)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="MMYY"
-                                            maxLength="4"
-                                            value={expiry}
-                                            onChange={(e) => setExpiry(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-blue-500/50 font-mono"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] text-slate-500 uppercase font-bold">CVV</label>
-                                        <input
-                                            type="text"
-                                            placeholder="123"
-                                            maxLength="4"
-                                            value={cvv}
-                                            onChange={(e) => setCvv(e.target.value)}
-                                            className="w-full bg-white border border-slate-200 rounded px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-blue-500/50 font-mono"
-                                        />
-                                    </div>
+                                    <label className="text-[10px] text-slate-500 uppercase font-bold">Card Details</label>
+                                    <div
+                                        id="paymentCardContainer"
+                                        ref={paymentCardContainerRef}
+                                        className="w-full bg-white border border-slate-200 rounded px-3 py-3"
+                                    ></div>
+                                    {!payjsReady && !payjsError && (
+                                        <div className="text-[10px] text-slate-400">Loading secure card entry...</div>
+                                    )}
+                                    {payjsError && (
+                                        <div className="text-[10px] text-red-600">{payjsError}</div>
+                                    )}
+                                    {publicKey && (
+                                        <div className="text-[10px] text-slate-400">Pay.js key suffix: {publicKey.slice(-6)}</div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -422,7 +448,7 @@ const PaymentPlanBuilder = ({ debtId, totalDue, debtor, onPlanCreated }) => {
                         <div className="pt-4">
                             <button
                                 onClick={handleSavePlan}
-                                disabled={saving || !cardNumber}
+                                disabled={saving || !payjsReady}
                                 className="w-full mt-6 py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-300 text-white font-bold rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                             >
                                 {saving ? (

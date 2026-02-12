@@ -1,0 +1,44 @@
+--- DEBT #5 INFO ---
+Debt ID: 5
+Debtor Name: OLIVIA KOERNER
+Debtor Email: dominic@eliteportfoliomgt.com
+Debtor ID: f9fa4d15-7de4-4aef-b10e-a5cee65c2523
+
+--- LAST 5 EMAIL LOGS ---
+Log ID: 6
+  To: dominic@eliteportfoliomgt.com
+  Status: sent
+  Template: d-af354e38605d46e093e9a5c531d8e13f
+  SG Msg ID: aseLHPg-R6mkMzT27q3m9g
+  Time: 2026-02-12 17:20:11.915362+00:00
+------------------------------
+Log ID: 5
+  To: dominic@eliteportfoliomgt.com
+  Status: opened
+  Template: d-2292ad4d40954a3a878f9389f638ceb1
+  SG Msg ID: 950tWf6aSouyp290CGLmxg
+  Time: 2026-02-11 16:54:32.547969+00:00
+------------------------------
+Log ID: 4
+  To: dominic@eliteportfoliomgt.com
+  Status: opened
+  Template: d-2292ad4d40954a3a878f9389f638ceb1
+  SG Msg ID: lttNcfK4SBCK46nMqNuUNg
+  Time: 2026-02-11 16:25:12.368660+00:00
+------------------------------
+Log ID: 3
+  To: dominic@eliteportfoliomgt.com
+  Status: opened
+  Template: d-2292ad4d40954a3a878f9389f638ceb1
+  SG Msg ID: N5i_LAHeQAOVSL3bd6WIcw
+  Time: 2026-02-11 15:57:37.659808+00:00
+------------------------------
+Log ID: 2
+  To: dominic@eliteportfoliomgt.com
+  Status: clicked
+  Template: None
+  SG Msg ID: fDT0zKtYRW2MUg8WCFJMHw
+  Time: 2026-02-06 21:19:52.097559+00:00
+------------------------------
+
+DONE

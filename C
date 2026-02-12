@@ -1,0 +1,4 @@
+ALTER TABLE debts ADD COLUMN IF NOT EXISTS current_creditor VARCHAR(255);
+
+UPDATE debts
+SET current_creditor = COALESCE(current_creditor, original_creditor);

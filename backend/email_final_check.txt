@@ -1,0 +1,12 @@
+--- DEBTOR STATUS ---
+Email: dominic@eliteportfoliomgt.com
+Bounce Status: None
+Last Bounced: None
+Unsubscribed: False
+
+--- TEMPLATE DETAILS ---
+Template Name: Validation Notice
+Description: FDCPA Validation Notice
+ID: d-af354e38605d46e093e9a5c531d8e13f
+
+DONE

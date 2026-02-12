@@ -48,10 +48,12 @@ def initialize_db():
                 client_reference_number VARCHAR(255),
                 original_account_number VARCHAR(255) NOT NULL,
                 original_creditor VARCHAR(255),
+                current_creditor VARCHAR(255),
                 date_opened DATE,
                 charge_off_date DATE,
                 principal_balance DECIMAL(15,2),
                 fees_costs DECIMAL(15,2),
+                face_value DECIMAL(15,2),
                 amount_due DECIMAL(15,2),
                 last_payment_date DATE,
                 last_payment_amount DECIMAL(15,2),
@@ -84,6 +86,11 @@ def initialize_db():
                 transaction_reference VARCHAR(255),
                 scheduled_payment_id INTEGER,
                 payment_method VARCHAR(50),
+                status VARCHAR(20) DEFAULT 'paid',
+                result_code VARCHAR(10),
+                result VARCHAR(255),
+                decline_reason VARCHAR(50),
+                error_message TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
@@ -111,18 +118,27 @@ def initialize_db():
                 plan_id INTEGER REFERENCES payment_plans(id) ON DELETE CASCADE,
                 amount DECIMAL(15,2) NOT NULL,
                 due_date DATE NOT NULL,
-                status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'paid', 'missed', 'cancelled'
+                status VARCHAR(50) DEFAULT 'pending', -- 'pending', 'paid', 'missed', 'cancelled', 'declined', 'retrying', 'processing'
                 actual_payment_id INTEGER REFERENCES payments(id),
                 processed_at TIMESTAMP DEFAULT NULL,
                 transaction_reference VARCHAR(255),
                 payment_method VARCHAR(50),
+                attempt_count INTEGER DEFAULT 0,
+                next_attempt_at TIMESTAMP DEFAULT NULL,
+                last_attempt_at TIMESTAMP DEFAULT NULL,
+                last_gateway_trankey VARCHAR(255),
+                last_result_code VARCHAR(10),
+                last_result VARCHAR(255),
+                last_decline_reason VARCHAR(50),
+                last_error TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
         
         # 3. Seed initial data if portfolios is empty
         cursor.execute("SELECT COUNT(*) FROM portfolios")
-        if cursor.fetchone()[0] == 0:
+        result = cursor.fetchone()
+        if result and result[0] == 0:
             cursor.execute("INSERT INTO portfolios (name, commission_percentage) VALUES ('Standard Portfolio', 30.0)")
             print("Seeded initial portfolio.")
 
